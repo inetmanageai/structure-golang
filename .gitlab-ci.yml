@@ -1,0 +1,44 @@
+image: docker:20-dind
+
+services:
+  - name: docker:20-dind
+    command: ["--tls=false"]
+
+variables:
+  DOCKER_DRIVER: overlay
+  DOCKER_TLS_CERTDIR: ""
+  RUNNER_TAG: "uranus-01"
+
+stages:
+  - build-staging
+  - build-prd
+
+  
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+build-staging job:
+  stage: build-staging
+  script:
+    - APP_TAG=staging
+    - docker build --build-arg version=$APP_TAG -t $CI_REGISTRY_IMAGE:$APP_TAG .
+    - docker push $CI_REGISTRY_IMAGE:$APP_TAG
+  tags: 
+    - $RUNNER_TAG
+  only:
+    - staging
+
+
+build-prd-job:
+  stage: build-prd
+  script:
+    - docker pull $CI_REGISTRY_IMAGE:staging
+    - docker tag $CI_REGISTRY_IMAGE:staging $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+  tags: 
+    - $RUNNER_TAG
+  only:
+    - tags
+  except:
+    - master
+
